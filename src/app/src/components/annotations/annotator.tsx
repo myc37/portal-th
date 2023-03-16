@@ -49,6 +49,7 @@ import FileModal from "./filemodal";
 import AnnotatorSettings from "./utils/annotatorsettings";
 import FormatTimerSeconds from "./utils/timer";
 import { RegisteredModel } from "./model";
+import AnalyticsBar from "../analyticsbar";
 
 type Point = [number, number];
 type MapType = L.DrawMap;
@@ -86,6 +87,8 @@ interface AnnotatorProps {
   loadedModel: RegisteredModel | undefined;
   isConnected: boolean;
 }
+
+type VideoAnalyticsResults = Record<string, any[]>;
 
 interface AnnotatorState {
   /* Image List for Storing Project Files */
@@ -148,6 +151,9 @@ interface AnnotatorState {
     opacity: number;
   };
   currAnnotationPlaybackId: number;
+  isAnalyticsMode: boolean;
+  videoAnalyticsResults: VideoAnalyticsResults;
+  currentVideoFps: number;
 }
 
 /**
@@ -246,6 +252,8 @@ export default class Annotator extends Component<
         },
       },
       currAnnotationPlaybackId: 0,
+      isAnalyticsMode: false,
+      videoAnalyticsResults: {},
     };
 
     this.toaster = new Toaster({}, {});
@@ -716,6 +724,7 @@ export default class Annotator extends Component<
       predictDone: 0.01,
       multiplier: 1,
       uiState: "Predicting",
+      isAnalyticsMode: this.currentAsset.type === "video",
     });
     if (reanalyse && this.currentAsset.type === "video") {
       this.handleProgressToast(true);
@@ -729,6 +738,7 @@ export default class Annotator extends Component<
       predictDone: 0,
       uiState: null,
       killVideoPrediction: false,
+      isAnalyticsMode: false,
     });
   }
 
@@ -793,6 +803,16 @@ export default class Annotator extends Component<
              * @param {DOMHighResTimeStamp} now
              * @param {VideoFrameMetadata} metadata
              */
+            const videoAnalyticsResults = JSON.parse(
+              JSON.stringify(this.state.videoAnalyticsResults)
+            );
+            videoAnalyticsResults[this.currentAsset.assetUrl] =
+              response.data.frames;
+            this.setState({
+              videoAnalyticsResults,
+              currentVideoFps: response.data.fps,
+            });
+
             const videoFrameCallback = (
               now: DOMHighResTimeStamp,
               metadata: VideoFrameMetadata
@@ -820,7 +840,10 @@ export default class Annotator extends Component<
               const videoId = (videoElement as any).requestVideoFrameCallback(
                 videoFrameCallback
               );
-              this.setState({ currAnnotationPlaybackId: videoId });
+
+              this.setState({
+                currAnnotationPlaybackId: videoId,
+              });
             };
 
             if ("requestVideoFrameCallback" in HTMLVideoElement.prototype) {
@@ -1173,7 +1196,9 @@ export default class Annotator extends Component<
 
     const currentVideoElement = this.videoOverlay.getElement();
     if (!isAssetReselection) {
-      this.setState({ currentAssetAnnotations: [] });
+      this.setState({
+        currentAssetAnnotations: [],
+      });
       this.annotationGroup.eachLayer(layer => {
         this.annotationGroup.removeLayer(layer);
       });
@@ -1574,15 +1599,29 @@ export default class Annotator extends Component<
               className={[isCollapsed, "image-bar"].join("")}
               id={"image-bar"}
             >
-              <ImageBar
-                ref={ref => {
-                  this.imagebarRef = ref;
-                }}
-                /* Only visible assets should be shown */
-                assetList={visibleAssets}
-                callbacks={{ selectAssetCallback: this.selectAsset }}
-                {...this.props}
-              />
+              {this.state.isAnalyticsMode ? (
+                <AnalyticsBar
+                  ref={ref => {
+                    this.imagebarRef = ref;
+                  }}
+                  analyticsResults={this.state.videoAnalyticsResults}
+                  confidence={this.state.confidence}
+                  currentVideoKey={this.currentAsset.assetUrl}
+                  currentVideoFps={this.state.currentVideoFps}
+                  callbacks={{ selectAssetCallback: this.selectAsset }}
+                  {...this.props}
+                />
+              ) : (
+                <ImageBar
+                  ref={ref => {
+                    this.imagebarRef = ref;
+                  }}
+                  /* Only visible assets should be shown */
+                  assetList={visibleAssets}
+                  callbacks={{ selectAssetCallback: this.selectAsset }}
+                  {...this.props}
+                />
+              )}
             </Card>
           </div>
 
