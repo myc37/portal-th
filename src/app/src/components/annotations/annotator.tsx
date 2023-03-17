@@ -724,7 +724,7 @@ export default class Annotator extends Component<
       predictDone: 0.01,
       multiplier: 1,
       uiState: "Predicting",
-      isAnalyticsMode: this.currentAsset.type === "video",
+      // isAnalyticsMode: this.currentAsset.type === "video",
     });
     if (reanalyse && this.currentAsset.type === "video") {
       this.handleProgressToast(true);
@@ -738,7 +738,8 @@ export default class Annotator extends Component<
       predictDone: 0,
       uiState: null,
       killVideoPrediction: false,
-      isAnalyticsMode: false,
+      // isAnalyticsMode: false,
+      isAnalyticsMode: this.currentAsset.type === "video",
     });
   }
 
@@ -1560,6 +1561,18 @@ export default class Annotator extends Component<
     );
   }
 
+  public pauseVideo = () => this.videoOverlay.getElement()?.pause();
+
+  public resumeVideo = () => this.videoOverlay.getElement()?.play();
+
+  public panVideo = (time: number) => {
+    const videoElement = this.videoOverlay.getElement();
+
+    if (videoElement == undefined) return;
+
+    videoElement.currentTime = time;
+  };
+
   render(): JSX.Element {
     /* Prefix for Dynamic Styling of Collapsing Image List */
     const collapsedButtonTheme = this.props.useDarkTheme ? "" : "light-";
@@ -1608,7 +1621,11 @@ export default class Annotator extends Component<
                   confidence={this.state.confidence}
                   currentVideoKey={this.currentAsset.assetUrl}
                   currentVideoFps={this.state.currentVideoFps}
-                  callbacks={{ selectAssetCallback: this.selectAsset }}
+                  callbacks={{
+                    panVideo: this.panVideo,
+                    pauseVideo: this.pauseVideo,
+                    resumeVideo: this.resumeVideo,
+                  }}
                   {...this.props}
                 />
               ) : (

@@ -46,6 +46,13 @@ export default class AnalyticsBar extends Component<AnalyticsBarProps> {
         };
       });
 
+    const tickFormatter = (tick: any) => {
+      const date = new Date(0);
+      date.setSeconds(tick);
+      const hhmmssString = date.toISOString().substring(11, 19);
+      return hhmmssString;
+    };
+
     const uniqueKeys: Set<string> = displayData.reduce(
       (a: Set<string>, b: Record<string, number>) =>
         new Set([...a, ...Object.keys(b)]),
@@ -56,12 +63,28 @@ export default class AnalyticsBar extends Component<AnalyticsBarProps> {
     return (
       <div style={{ width: "100%", height: 100 }}>
         <ResponsiveContainer>
-          <LineChart data={displayData}>
-            <YAxis />
+          <LineChart
+            data={displayData}
+            onMouseDown={() => this.props.callbacks.pauseVideo()}
+            onClick={state => {
+              this.props.callbacks.panVideo(state.activeLabel);
+            }}
+            onMouseUp={() => this.props.callbacks.resumeVideo()}
+          >
+            <YAxis
+              tick={{
+                fill: this.props.useDarkTheme ? "white" : undefined,
+                fontSize: "11px",
+              }}
+            />
             <XAxis
               dataKey="time"
               interval={this.props.currentVideoFps - 1}
-              tickFormatter={tick => `00:${tick > 10 ? "" : 0}${tick}`}
+              tickFormatter={tickFormatter}
+              tick={{
+                fill: this.props.useDarkTheme ? "white" : undefined,
+                fontSize: "11px",
+              }}
             />
             <Tooltip
               labelStyle={{ color: "black" }}
@@ -70,11 +93,7 @@ export default class AnalyticsBar extends Component<AnalyticsBarProps> {
               cursor={false}
             />
             {Array.from(uniqueKeys).map(key => {
-              return (
-                <>
-                  <Line type="monotone" dataKey={key} key={key} />
-                </>
-              );
+              return <Line type="monotone" dataKey={key} key={key} />;
             })}
           </LineChart>
         </ResponsiveContainer>
